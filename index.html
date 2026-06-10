@@ -142,6 +142,51 @@
 
   select option { background: var(--surface2); }
 
+
+
+  /* REGISTRO OPTIMIZADO */
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 180px;
+    gap: 0.9rem;
+    align-items: end;
+  }
+
+  .field-help {
+    margin-top: -0.65rem;
+    margin-bottom: 1rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  input[type=number] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.95rem;
+    padding: 0.7rem 0.9rem;
+    margin-bottom: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input[type=number]:focus {
+    border-color: var(--gold);
+  }
+
+  .pred-bet-badge {
+    font-size: 0.78rem;
+    background: rgba(59,130,246,0.13);
+    color: #93C5FD;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
   /* MATCH GRID */
   .stage-label {
     font-size: 0.75rem;
@@ -452,6 +497,7 @@
   }
 
   @media (max-width: 480px) {
+    .form-row { grid-template-columns: 1fr; gap: 0; }
     .pred-grid { grid-template-columns: 1fr; }
     .tabs { overflow-x: auto; padding: 0 0.5rem; }
     .tab { padding: 0.85rem 0.9rem; font-size: 0.8rem; }
@@ -478,8 +524,17 @@
   <div class="card">
     <div class="card-title">Tu predicción</div>
 
-    <label for="nombre">Tu nombre</label>
-    <input type="text" id="nombre" placeholder="Ej: Marco, Sebastián…" autocomplete="off">
+    <div class="form-row">
+      <div>
+        <label for="nombre">Tu nombre</label>
+        <input type="text" id="nombre" placeholder="Ej: Marco, Sebastián…" autocomplete="off" maxlength="40">
+      </div>
+      <div>
+        <label for="apuesta">Puntos a apostar</label>
+        <input type="number" id="apuesta" placeholder="Ej: 10.50" min="0.01" step="0.01" inputmode="decimal">
+      </div>
+    </div>
+    <div class="field-help">La apuesta acepta hasta 2 decimales. Ejemplo válido: 10.50</div>
 
     <div class="champion-section">
       <h3>🏆 ¿Quién será campeón del mundo?</h3>
@@ -634,6 +689,7 @@ const PARTIDOS = [
 ];
 
 const TODOS_PARTIDOS = PARTIDOS.flatMap(s => s.matches);
+const TOTAL_PARTIDOS = TODOS_PARTIDOS.length;
 const ADMIN_PWD = 'mundial2026';
 
 // ══════════════════════════════════════════════════════════
@@ -670,70 +726,96 @@ function getFlag(nombre) {
 
 function buildMatchRows() {
   const container = document.getElementById('stages-container');
+  const fragment = document.createDocumentFragment();
   container.innerHTML = '';
 
   PARTIDOS.forEach(stage => {
     const lbl = document.createElement('div');
     lbl.className = 'stage-label';
     lbl.textContent = stage.etapa;
-    container.appendChild(lbl);
+    fragment.appendChild(lbl);
 
     stage.matches.forEach(m => {
       const row = document.createElement('div');
       row.className = 'match-row';
       row.id = 'row-' + m.id;
-
-      const flagL = getFlag(m.local);
-      const flagR = getFlag(m.visita);
-
-      row.innerHTML = `
-        <button class="team-btn left" onclick="choosePick('${m.id}','${m.local}')">
-          <span>${m.local}</span>
-          <span class="flag">${flagL}</span>
-        </button>
-        <span class="vs-badge">VS</span>
-        <button class="team-btn right" onclick="choosePick('${m.id}','${m.visita}')">
-          <span class="flag">${flagR}</span>
-          <span>${m.visita}</span>
-        </button>
-      `;
-      container.appendChild(row);
+      row.dataset.matchId = m.id;
+      row.innerHTML = getMatchRowHTML(m);
+      fragment.appendChild(row);
     });
   });
+
+  container.appendChild(fragment);
+  updateAllSelectedRows();
   updateProgress();
 }
 
-function choosePick(matchId, team) {
-  picks[matchId] = team;
+function getMatchRowHTML(m) {
+  const selected = picks[m.id];
+  const leftSelected = selected === m.local;
+  const rightSelected = selected === m.visita;
+  return `
+    <button class="team-btn left ${leftSelected ? 'winner' : ''}" data-pick="${m.local}" data-match-id="${m.id}">
+      <span>${m.local}</span>
+      <span class="flag">${getFlag(m.local)}</span>
+    </button>
+    <span class="vs-badge">VS</span>
+    <button class="team-btn right ${rightSelected ? 'winner' : ''}" data-pick="${m.visita}" data-match-id="${m.id}">
+      <span class="flag">${getFlag(m.visita)}</span>
+      <span>${m.visita}</span>
+    </button>
+  `;
+}
+
+function updateAllSelectedRows() {
+  TODOS_PARTIDOS.forEach(m => updateSelectedRow(m.id));
+}
+
+function updateSelectedRow(matchId) {
   const m = TODOS_PARTIDOS.find(x => x.id === matchId);
   const row = document.getElementById('row-' + matchId);
   if (!row || !m) return;
 
-  row.className = 'match-row ' + (team === m.local ? 'selected-left' : 'selected-right');
+  const selected = picks[matchId];
+  row.className = 'match-row';
+  if (selected === m.local) row.classList.add('selected-left');
+  if (selected === m.visita) row.classList.add('selected-right');
+  row.innerHTML = getMatchRowHTML(m);
+}
 
-  const flagL = getFlag(m.local);
-  const flagR = getFlag(m.visita);
-
-  const isLeft = team === m.local;
-  row.innerHTML = `
-    <button class="team-btn left ${isLeft ? 'winner' : ''}" onclick="choosePick('${matchId}','${m.local}')">
-      <span>${m.local}</span>
-      <span class="flag">${flagL}</span>
-    </button>
-    <span class="vs-badge">VS</span>
-    <button class="team-btn right ${!isLeft ? 'winner' : ''}" onclick="choosePick('${matchId}','${m.visita}')">
-      <span class="flag">${flagR}</span>
-      <span>${m.visita}</span>
-    </button>
-  `;
+function choosePick(matchId, team) {
+  picks[matchId] = team;
+  updateSelectedRow(matchId);
   updateProgress();
 }
 
 function updateProgress() {
-  const total = TODOS_PARTIDOS.length;
   const done = Object.keys(picks).length;
-  document.getElementById('step-counter').textContent = `${done} de ${total} partidos elegidos`;
-  document.getElementById('progress').style.width = (done / total * 100) + '%';
+  document.getElementById('step-counter').textContent = `${done} de ${TOTAL_PARTIDOS} partidos elegidos`;
+  document.getElementById('progress').style.width = (done / TOTAL_PARTIDOS * 100) + '%';
+}
+
+document.getElementById('stages-container').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-pick]');
+  if (!btn) return;
+  choosePick(btn.dataset.matchId, btn.dataset.pick);
+});
+
+function normalizarApuesta(valor) {
+  return valor.trim().replace(',', '.');
+}
+
+function validarApuesta(valor) {
+  const limpio = normalizarApuesta(valor);
+  if (!/^\d+(\.\d{1,2})?$/.test(limpio)) return null;
+  const numero = Number(limpio);
+  if (!Number.isFinite(numero) || numero <= 0) return null;
+  return numero;
+}
+
+function formatApuesta(valor) {
+  const numero = Number(valor || 0);
+  return numero.toFixed(2);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -741,9 +823,11 @@ function updateProgress() {
 // ══════════════════════════════════════════════════════════
 function guardarPrediccion() {
   const nombre = document.getElementById('nombre').value.trim();
+  const apuesta = validarApuesta(document.getElementById('apuesta').value);
   const campeon = document.getElementById('campeon').value;
 
   if (!nombre) { showToast('⚠️ Ingresa tu nombre', true); return; }
+  if (apuesta === null) { showToast('⚠️ Ingresa una apuesta válida. Ej: 10.50', true); return; }
   if (!campeon) { showToast('⚠️ Elige un campeón', true); return; }
   if (Object.keys(picks).length === 0) { showToast('⚠️ Elige al menos un partido', true); return; }
 
@@ -752,6 +836,7 @@ function guardarPrediccion() {
 
   const entry = {
     nombre,
+    apuesta: apuesta.toFixed(2),
     campeon,
     picks: { ...picks },
     fecha: new Date().toLocaleDateString('es-PE', {day:'2-digit', month:'short', year:'numeric'})
@@ -767,6 +852,7 @@ function guardarPrediccion() {
 
   savePredicciones(preds);
   document.getElementById('nombre').value = '';
+  document.getElementById('apuesta').value = '';
   document.getElementById('campeon').value = '';
   picks = {};
   buildMatchRows();
@@ -819,6 +905,7 @@ function renderPredicciones() {
             ${flag} ${p.campeon}
             ${results['campeon'] ? (campeonOk ? ' ✓' : ' ✗') : ''}
           </div>
+          <div class="pred-bet-badge">🎯 ${formatApuesta(p.apuesta)} pts</div>
         </div>
         <div class="pred-body">
           <div class="pred-grid">${items}</div>
@@ -859,7 +946,7 @@ function renderLeaderboard() {
         <div class="rank ${rankClass}">${i + 1}</div>
         <div>
           <div class="row-name">${p.nombre}</div>
-          <div style="font-size:0.75rem; color:var(--muted)">${getFlag(p.campeon)} ${p.campeon}</div>
+          <div style="font-size:0.75rem; color:var(--muted)">${getFlag(p.campeon)} ${p.campeon} · Apuesta: ${formatApuesta(p.apuesta)} pts</div>
         </div>
         <div style="margin-left:auto; text-align:right">
           <div class="row-score">${p.pts} pts</div>
@@ -955,6 +1042,14 @@ function showToast(msg, warn) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
+
+
+// Formatea la apuesta a dos decimales al salir del campo
+const apuestaInput = document.getElementById('apuesta');
+apuestaInput.addEventListener('blur', () => {
+  const apuesta = validarApuesta(apuestaInput.value);
+  if (apuesta !== null) apuestaInput.value = apuesta.toFixed(2);
+});
 
 // ══════════════════════════════════════════════════════════
 // INIT
