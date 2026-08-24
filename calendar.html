@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Horario Laboral</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root{
+    --bg:#0e1216;
+    --panel:#161c22;
+    --panel-2:#1e262e;
+    --border:#2a343d;
+    --border-soft:#212a32;
+    --text:#e7edf2;
+    --text-dim:#8b98a3;
+    --text-faint:#5a6670;
+    --accent:#49d3c4;
+    --accent-dim:#1f4842;
+    --warn:#ffb454;
+    --warn-dim:#4a3820;
+    --danger:#ff6b6b;
+    --danger-dim:#4a2222;
+    --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+    --sans:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      linear-gradient(180deg, rgba(73,211,196,0.04), transparent 200px),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    padding-bottom:60px;
+  }
+  .rail{
+    position:fixed;top:0;left:0;right:0;height:3px;
+    background:repeating-linear-gradient(90deg,var(--accent) 0 18px, transparent 18px 26px);
+    opacity:0.5;
+  }
+  header{
+    padding:28px 24px 18px;
+    max-width:980px;margin:0 auto;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;letter-spacing:0.12em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:8px;
+  }
+  h1{
+    font-size:26px;margin:0 0 4px;font-weight:700;letter-spacing:-0.01em;
+  }
+  .sub{color:var(--text-dim);font-size:13.5px;margin:0;}
+
+  main{max-width:980px;margin:0 auto;padding:0 24px;display:flex;flex-direction:column;gap:18px;}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .panel-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 18px;border-bottom:1px solid var(--border-soft);
+    cursor:pointer;user-select:none;
+  }
+  .panel-head h2{font-size:14px;margin:0;letter-spacing:0.02em;}
+  .panel-head .idx{font-family:var(--mono);color:var(--accent);font-size:12px;margin-right:8px;}
+  .chev{color:var(--text-faint);font-size:12px;transition:transform .2s;}
+  .panel.collapsed .chev{transform:rotate(-90deg);}
+  .panel-body{padding:16px 18px 18px;}
+  .panel.collapsed .panel-body{display:none;}
+
+  .cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
+  .cfg-card{
+    background:var(--panel-2);border:1px solid var(--border-soft);border-radius:8px;
+    padding:12px;display:flex;flex-direction:column;gap:8px;
+  }
+  .cfg-card.off{opacity:0.5;}
+  .cfg-card-top{display:flex;align-items:center;justify-content:space-between;}
+  .cfg-day-label{font-weight:600;font-size:13.5px;}
+  .switch{position:relative;width:36px;height:20px;flex:none;}
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{position:absolute;inset:0;background:#2a343d;border-radius:20px;cursor:pointer;transition:.15s;}
+  .slider:before{content:"";position:absolute;width:14px;height:14px;left:3px;top:3px;background:var(--text-dim);border-radius:50%;transition:.15s;}
+  .switch input:checked + .slider{background:var(--accent-dim);}
+  .switch input:checked + .slider:before{transform:translateX(16px);background:var(--accent);}
+  .field-row{display:flex;flex-direction:column;gap:3px;}
+  .field-row label{font-size:10.5px;color:var(--text-faint);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;}
+  input[type=number],input[type=time]{
+    background:var(--bg);border:1px solid var(--border);color:var(--text);
+    border-radius:6px;padding:6px 8px;font-family:var(--mono);font-size:13px;width:100%;
+  }
+  input[type=number]:focus,input[type=time]:focus{outline:none;border-color:var(--accent);}
+
+  .quick-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .btn{
+    font-family:var(--sans);font-size:12.5px;font-weight:600;
+    background:var(--panel-2);color:var(--text);border:1px solid var(--border);
+    border-radius:7px;padding:8px 14px;cursor:pointer;transition:.15s;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn.primary{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+  .btn.primary:hover{background:var(--accent);color:#0e1216;}
+  .btn.danger-ghost{color:var(--text-dim);}
+  .btn.danger-ghost:hover{border-color:var(--danger);color:var(--danger);}
+
+  .week-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+  .week-range{font-family:var(--mono);font-size:13px;color:var(--accent);}
+  .week-nav-btns{display:flex;gap:6px;}
+
+  .day-row{
+    background:var(--panel-2);border:1px solid var(--border-soft);border-radius:8px;
+    padding:12px 14px;margin-bottom:10px;
+  }
+  .day-row.rest{opacity:0.45;}
+  .day-row-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+  .day-row-head .dname{font-weight:700;font-size:14px;}
+  .day-row-head .ddate{font-family:var(--mono);font-size:11.5px;color:var(--text-dim);margin-left:6px;}
+  .status-pill{
+    font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid;white-space:nowrap;
+  }
+  .pill-extra{color:var(--warn);border-color:var(--warn-dim);background:var(--warn-dim);}
+  .pill-deficit{color:var(--danger);border-color:var(--danger-dim);background:var(--danger-dim);}
+  .pill-ok{color:var(--accent);border-color:var(--accent-dim);background:var(--accent-dim);}
+  .pill-empty{color:var(--text-faint);border-color:var(--border);}
+
+  .inputs-line{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .inputs-line .field-row{min-width:100px;}
+
+  .breaks-block{margin-top:8px;}
+  .breaks-title{font-size:10.5px;color:var(--text-faint);font-family:var(--mono);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;}
+  .break-item{display:flex;gap:8px;align-items:flex-end;margin-bottom:6px;}
+  .break-item .field-row{min-width:100px;}
+  .icon-btn{
+    background:none;border:1px solid var(--border);color:var(--text-faint);
+    border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:14px;line-height:1;
+  }
+  .icon-btn:hover{color:var(--danger);border-color:var(--danger);}
+  .add-break{font-family:var(--mono);font-size:11.5px;color:var(--accent);background:none;border:1px dashed var(--accent-dim);border-radius:6px;padding:5px 10px;cursor:pointer;}
+  .add-break:hover{background:var(--accent-dim);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--border-soft);}
+  th{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-faint);font-weight:500;}
+  td{font-family:var(--mono);}
+  td.num,th.num{text-align:right;}
+  tr.total-row td{border-top:1px solid var(--border);border-bottom:none;font-weight:700;color:var(--text);}
+  td.extra{color:var(--warn);}
+  td.deficit{color:var(--danger);}
+
+  .export-bar{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+  .save-flag{font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-left:auto;align-self:center;}
+
+  footer{max-width:980px;margin:24px auto 0;padding:0 24px;color:var(--text-faint);font-size:11.5px;font-family:var(--mono);}
+
+  @media(max-width:640px){
+    .inputs-line{flex-direction:column;align-items:stretch;}
+    .break-item{flex-direction:column;align-items:stretch;}
+  }
+</style>
+</head>
+<body>
+<div class="rail"></div>
+<header>
+  <div class="eyebrow">// registro de horario · local, sin servidor</div>
+  <h1>Horario de Trabajo</h1>
+  <p class="sub">Configura tu semana laboral, registra tus horas efectivas y obtén el cálculo automático de horas extra o déficit.</p>
+</header>
+
+<main>
+
+  <section class="panel" id="panel-config">
+    <div class="panel-head" onclick="togglePanel('panel-config')">
+      <h2><span class="idx">01</span>Configuración semanal</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="panel-body">
+      <div class="cfg-grid" id="cfgGrid"></div>
+      <div class="quick-row">
+        <button class="btn" onclick="applyLunchToAll()">Aplicar almuerzo del lunes a todos los días</button>
+        <button class="btn danger-ghost" onclick="resetConfig()">Restaurar valores por defecto</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-week">
+    <div class="panel-head" onclick="togglePanel('panel-week')">
+      <h2><span class="idx">02</span>Registro de la semana</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="panel-body">
+      <div class="week-nav">
+        <div class="week-nav-btns">
+          <button class="btn" onclick="shiftWeek(-1)">◂ Semana anterior</button>
+          <button class="btn" onclick="goToday()">Hoy</button>
+          <button class="btn" onclick="shiftWeek(1)">Semana siguiente ▸</button>
+        </div>
+        <div class="week-range" id="weekRange"></div>
+      </div>
+      <div id="daysContainer" style="margin-top:14px;"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-summary">
+    <div class="panel-head" onclick="togglePanel('panel-summary')">
+      <h2><span class="idx">03</span>Resumen de horas</h2>
+      <span class="chev">▾</span>
+    </div>
+    <div class="panel-body">
+      <table id="summaryTable">
+        <thead>
+          <tr>
+            <th>Día</th><th>Fecha</th>
+            <th class="num">Planificado</th><th class="num">Trabajado</th>
+            <th class="num">Extra</th><th class="num">Déficit</th>
+          </tr>
+        </thead>
+        <tbody id="summaryBody"></tbody>
+      </table>
+      <div class="export-bar">
+        <button class="btn primary" onclick="exportCalendarPDF()">Exportar calendario programado (PDF)</button>
+        <button class="btn primary" onclick="exportSummaryPDF()">Exportar resumen de horas (PDF)</button>
+        <span class="save-flag" id="saveFlag">guardado localmente ✓</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>Los datos se guardan únicamente en este navegador (localStorage). No se envía información a ningún servidor.</footer>
+
+<script>
+/* ---------- constantes ---------- */
+const DAY_KEYS = ['lun','mar','mie','jue','vie','sab','dom'];
+const DAY_LABELS = {lun:'Lunes',mar:'Martes',mie:'Miércoles',jue:'Jueves',vie:'Viernes',sab:'Sábado',dom:'Domingo'};
+const LUNCH_HOURS = 1;
+
+/* ---------- estado ---------- */
+let config = loadConfig();
+let logs = loadLogs();
+let currentWeekStart = getMonday(new Date());
+
+/* ---------- almacenamiento ---------- */
+function defaultConfig(){
+  const days = {};
+  DAY_KEYS.forEach((k,i)=>{
+    days[k] = { workday: i<5, planned: 8, lunchStart: '13:00' };
+  });
+  return { days };
+}
+function loadConfig(){
+  try{
+    const raw = localStorage.getItem('horario_config');
+    if(!raw) return defaultConfig();
+    const parsed = JSON.parse(raw);
+    const base = defaultConfig();
+    DAY_KEYS.forEach(k=>{ if(parsed.days && parsed.days[k]) base.days[k] = {...base.days[k], ...parsed.days[k]}; });
+    return base;
+  }catch(e){ return defaultConfig(); }
+}
+function saveConfig(){
+  localStorage.setItem('horario_config', JSON.stringify(config));
+  flagSaved();
+}
+function loadLogs(){
+  try{
+    const raw = localStorage.getItem('horario_logs');
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function saveLogs(){
+  localStorage.setItem('horario_logs', JSON.stringify(logs));
+  flagSaved();
+}
+function flagSaved(){
+  const el = document.getElementById('saveFlag');
+  el.textContent = 'guardado ' + new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}) + ' ✓';
+}
+
+/* ---------- utilidades de fecha ---------- */
+function getMonday(d){
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = (day===0? -6 : 1-day);
+  date.setDate(date.getDate()+diff);
+  date.setHours(0,0,0,0);
+  return date;
+}
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function isoDate(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function fmtShort(d){
+  return d.toLocaleDateString('es-PE',{day:'2-digit',month:'short'});
+}
+function timeToMin(t){
+  if(!t) return null;
+  const [h,m] = t.split(':').map(Number);
+  return h*60+m;
+}
+
+/* ---------- panel toggle ---------- */
+function togglePanel(id){
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+/* ---------- render: configuración ---------- */
+function renderConfig(){
+  const grid = document.getElementById('cfgGrid');
+  grid.innerHTML = '';
+  DAY_KEYS.forEach(k=>{
+    const cfg = config.days[k];
+    const card = document.createElement('div');
+    card.className = 'cfg-card' + (cfg.workday?'':' off');
+    card.innerHTML = `
+      <div class="cfg-card-top">
+        <span class="cfg-day-label">${DAY_LABELS[k]}</span>
+        <label class="switch">
+          <input type="checkbox" ${cfg.workday?'checked':''} onchange="onToggleWorkday('${k}',this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="field-row">
+        <label>Horas planificadas</label>
+        <input type="number" min="0" max="24" step="0.5" value="${cfg.planned}" onchange="onChangePlanned('${k}',this.value)">
+      </div>
+      <div class="field-row">
+        <label>Inicio de almuerzo</label>
+        <input type="time" value="${cfg.lunchStart}" onchange="onChangeLunch('${k}',this.value)">
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+function onToggleWorkday(k,val){ config.days[k].workday = val; saveConfig(); renderConfig(); renderWeek(); }
+function onChangePlanned(k,val){ config.days[k].planned = parseFloat(val)||0; saveConfig(); renderWeek(); }
+function onChangeLunch(k,val){ config.days[k].lunchStart = val; saveConfig(); renderWeek(); }
+function applyLunchToAll(){
+  const lunch = config.days['lun'].lunchStart;
+  DAY_KEYS.forEach(k=> config.days[k].lunchStart = lunch);
+  saveConfig(); renderConfig(); renderWeek();
+}
+function resetConfig(){
+  if(!confirm('¿Restaurar la configuración semanal a los valores por defecto? Esto no borra el registro de horas ya ingresado.')) return;
+  config = defaultConfig(); saveConfig(); renderConfig(); renderWeek();
+}
+
+/* ---------- cálculo por día ---------- */
+function computeDay(dayKey, dateStr){
+  const cfg = config.days[dayKey];
+  const log = logs[dateStr] || {start:'',end:'',breaks:[]};
+  let worked = 0, extra = 0, deficit = 0, hasLog = false;
+  if(cfg.workday && log.start && log.end){
+    const s = timeToMin(log.start), e = timeToMin(log.end);
+    let gross = (e - s) / 60;
+    if(gross < 0) gross = 0;
+    let breaksTotal = 0;
+    (log.breaks||[]).forEach(b=>{
+      if(b.start && b.end){
+        let bm = (timeToMin(b.end) - timeToMin(b.start))/60;
+        if(bm>0) breaksTotal += bm;
+      }
+    });
+    worked = Math.max(0, gross - LUNCH_HOURS - breaksTotal);
+    extra = Math.max(0, worked - cfg.planned);
+    deficit = Math.max(0, cfg.planned - worked);
+    hasLog = true;
+  }
+  return { planned: cfg.workday ? cfg.planned : 0, worked, extra, deficit, hasLog, workday: cfg.workday };
+}
+
+/* ---------- render: semana ---------- */
+function renderWeek(){
+  const range = document.getElementById('weekRange');
+  const start = currentWeekStart, end = addDays(start,6);
+  range.textContent = `${fmtShort(start)} — ${fmtShort(end)} ${end.getFullYear()}`;
+
+  const container = document.getElementById('daysContainer');
+  container.innerHTML = '';
+
+  DAY_KEYS.forEach((k,i)=>{
+    const date = addDays(start,i);
+    const dateStr = isoDate(date);
+    const cfg = config.days[k];
+    const log = logs[dateStr] || {start:'',end:'',breaks:[]};
+    const calc = computeDay(k,dateStr);
+
+    const row = document.createElement('div');
+    row.className = 'day-row' + (cfg.workday ? '' : ' rest');
+
+    let pill = '<span class="status-pill pill-empty">sin registrar</span>';
+    if(cfg.workday && calc.hasLog){
+      if(calc.extra>0) pill = `<span class="status-pill pill-extra">+${calc.extra.toFixed(2)} h extra</span>`;
+      else if(calc.deficit>0) pill = `<span class="status-pill pill-deficit">−${calc.deficit.toFixed(2)} h</span>`;
+      else pill = `<span class="status-pill pill-ok">completo</span>`;
+    } else if(!cfg.workday){
+      pill = `<span class="status-pill pill-empty">no laborable</span>`;
+    }
+
+    let bodyHtml = '';
+    if(cfg.workday){
+      bodyHtml += `
+        <div class="inputs-line">
+          <div class="field-row">
+            <label>Hora inicio</label>
+            <input type="time" value="${log.start||''}" onchange="onLogChange('${dateStr}','start',this.value)">
+          </div>
+          <div class="field-row">
+            <label>Hora fin</label>
+            <input type="time" value="${log.end||''}" onchange="onLogChange('${dateStr}','end',this.value)">
+          </div>
+          <div class="field-row">
+            <label>Almuerzo (fijo)</label>
+            <input type="text" value="${cfg.lunchStart} · 1.0 h" disabled style="opacity:0.55;">
+          </div>
+        </div>
+        <div class="breaks-block">
+          <div class="breaks-title">Descansos tomados</div>
+          <div id="breaks-${dateStr}"></div>
+          <button class="add-break" onclick="addBreak('${dateStr}')">+ Agregar descanso</button>
+        </div>
+      `;
+    } else {
+      bodyHtml = `<div style="font-size:12.5px;color:var(--text-faint);">Día marcado como no laborable en la configuración.</div>`;
+    }
+
+    row.innerHTML = `
+      <div class="day-row-head">
+        <div><span class="dname">${DAY_LABELS[k]}</span><span class="ddate">${dateStr}</span></div>
+        ${pill}
+      </div>
+      ${bodyHtml}
+    `;
+    container.appendChild(row);
+
+    if(cfg.workday){
+      renderBreaks(dateStr);
+    }
+  });
+
+  renderSummary();
+}
+
+function ensureLog(dateStr){
+  if(!logs[dateStr]) logs[dateStr] = {start:'',end:'',breaks:[]};
+  if(!logs[dateStr].breaks) logs[dateStr].breaks = [];
+  return logs[dateStr];
+}
+function onLogChange(dateStr, field, value){
+  const log = ensureLog(dateStr);
+  log[field] = value;
+  saveLogs();
+  renderWeek();
+}
+function addBreak(dateStr){
+  const log = ensureLog(dateStr);
+  log.breaks.push({start:'',end:''});
+  saveLogs();
+  renderWeek();
+}
+function removeBreak(dateStr, idx){
+  const log = ensureLog(dateStr);
+  log.breaks.splice(idx,1);
+  saveLogs();
+  renderWeek();
+}
+function onBreakChange(dateStr, idx, field, value){
+  const log = ensureLog(dateStr);
+  log.breaks[idx][field] = value;
+  saveLogs();
+  renderWeek();
+}
+function renderBreaks(dateStr){
+  const log = ensureLog(dateStr);
+  const holder = document.getElementById(`breaks-${dateStr}`);
+  if(!holder) return;
+  holder.innerHTML = '';
+  log.breaks.forEach((b,idx)=>{
+    const item = document.createElement('div');
+    item.className = 'break-item';
+    item.innerHTML = `
+      <div class="field-row">
+        <label>Desde</label>
+        <input type="time" value="${b.start||''}" onchange="onBreakChange('${dateStr}',${idx},'start',this.value)">
+      </div>
+      <div class="field-row">
+        <label>Hasta</label>
+        <input type="time" value="${b.end||''}" onchange="onBreakChange('${dateStr}',${idx},'end',this.value)">
+      </div>
+      <button class="icon-btn" onclick="removeBreak('${dateStr}',${idx})" title="Eliminar descanso">✕</button>
+    `;
+    holder.appendChild(item);
+  });
+}
+
+/* ---------- resumen ---------- */
+function weekRows(){
+  const start = currentWeekStart;
+  return DAY_KEYS.map((k,i)=>{
+    const date = addDays(start,i);
+    const dateStr = isoDate(date);
+    const calc = computeDay(k,dateStr);
+    return { key:k, label:DAY_LABELS[k], dateStr, date, ...calc, log: logs[dateStr] || {start:'',end:'',breaks:[]} };
+  });
+}
+function renderSummary(){
+  const body = document.getElementById('summaryBody');
+  body.innerHTML = '';
+  const rows = weekRows();
+  let tP=0,tW=0,tE=0,tD=0;
+  rows.forEach(r=>{
+    tP+=r.planned; tW+=r.worked; tE+=r.extra; tD+=r.deficit;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.label}</td>
+      <td>${r.dateStr}</td>
+      <td class="num">${r.workday ? r.planned.toFixed(2) : '—'}</td>
+      <td class="num">${r.hasLog ? r.worked.toFixed(2) : '—'}</td>
+      <td class="num extra">${r.extra>0 ? '+'+r.extra.toFixed(2) : '—'}</td>
+      <td class="num deficit">${r.deficit>0 ? '−'+r.deficit.toFixed(2) : '—'}</td>
+    `;
+    body.appendChild(tr);
+  });
+  const trTotal = document.createElement('tr');
+  trTotal.className = 'total-row';
+  trTotal.innerHTML = `
+    <td colspan="2">Total semanal</td>
+    <td class="num">${tP.toFixed(2)}</td>
+    <td class="num">${tW.toFixed(2)}</td>
+    <td class="num extra">${tE.toFixed(2)}</td>
+    <td class="num deficit">${tD.toFixed(2)}</td>
+  `;
+  body.appendChild(trTotal);
+}
+
+/* ---------- navegación de semana ---------- */
+function shiftWeek(n){
+  currentWeekStart = addDays(currentWeekStart, 7*n);
+  renderWeek();
+}
+function goToday(){
+  currentWeekStart = getMonday(new Date());
+  renderWeek();
+}
+
+/* ---------- exportación PDF ---------- */
+function exportCalendarPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const rows = weekRows();
+  const start = currentWeekStart, end = addDays(start,6);
+
+  doc.setFontSize(14);
+  doc.text('Calendario de Horario Programado', 14, 16);
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Semana del ${fmtShort(start)} al ${fmtShort(end)} de ${end.getFullYear()}`, 14, 22);
+
+  doc.autoTable({
+    startY: 28,
+    head: [['Día','Fecha','Laborable','Hora de almuerzo','Horas planificadas']],
+    body: rows.map(r=>[
+      r.label,
+      r.dateStr,
+      config.days[r.key].workday ? 'Sí' : 'No',
+      config.days[r.key].workday ? `${config.days[r.key].lunchStart} (1.0 h)` : '—',
+      config.days[r.key].workday ? r.planned.toFixed(2) : '—'
+    ]),
+    theme: 'grid',
+    headStyles: { fillColor: [30,38,46], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 9, cellPadding: 4 },
+    alternateRowStyles: { fillColor: [245,247,248] }
+  });
+
+  doc.save(`calendario-horario-${isoDate(start)}.pdf`);
+}
+
+function exportSummaryPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const rows = weekRows();
+  const start = currentWeekStart, end = addDays(start,6);
+
+  doc.setFontSize(14);
+  doc.text('Resumen de Horas Trabajadas y Extras', 14, 16);
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Semana del ${fmtShort(start)} al ${fmtShort(end)} de ${end.getFullYear()}`, 14, 22);
+
+  let tP=0,tW=0,tE=0,tD=0;
+  const body = rows.map(r=>{
+    tP+=r.planned; tW+=r.worked; tE+=r.extra; tD+=r.deficit;
+    const breaksMin = (r.log.breaks||[]).reduce((s,b)=>{
+      if(b.start && b.end){ const m=(timeToMin(b.end)-timeToMin(b.start)); return s+(m>0?m:0); }
+      return s;
+    },0);
+    return [
+      r.label, r.dateStr,
+      r.log.start || '—', r.log.end || '—',
+      breaksMin ? `${breaksMin} min` : '—',
+      r.hasLog ? r.worked.toFixed(2) : '—',
+      r.extra>0 ? '+'+r.extra.toFixed(2) : '—',
+      r.deficit>0 ? '−'+r.deficit.toFixed(2) : '—'
+    ];
+  });
+  body.push(['Total','','','','', tW.toFixed(2), '+'+tE.toFixed(2), '−'+tD.toFixed(2)]);
+
+  doc.autoTable({
+    startY: 28,
+    head: [['Día','Fecha','Inicio','Fin','Descansos','Trabajado (h)','Extra (h)','Déficit (h)']],
+    body,
+    theme: 'grid',
+    headStyles: { fillColor: [30,38,46], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 8.5, cellPadding: 3.5 },
+    alternateRowStyles: { fillColor: [245,247,248] },
+    didParseCell: (data)=>{
+      if(data.row.index === body.length-1){
+        data.cell.styles.fontStyle = 'bold';
+      }
+    }
+  });
+
+  doc.save(`resumen-horas-${isoDate(start)}.pdf`);
+}
+
+/* ---------- init ---------- */
+renderConfig();
+renderWeek();
+</script>
+</body>
+</html>
